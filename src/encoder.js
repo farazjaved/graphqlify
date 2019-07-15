@@ -123,7 +123,7 @@ function encodeFieldset(fields, fragments) {
 //   {a: 1, b: true, c: {}} => 'a,b,c'
 //   {a: {fields: {b: 1}}}  => 'a{b}'
 //
-function encodeFields(fields) {
+function encodeFields(fields, isNestedObject = false) {
   if (!fields || typeof fields !== 'object') {
     throw new Error(`fields cannot be "${fields}"`);
   }
@@ -131,7 +131,7 @@ function encodeFields(fields) {
   const encoded = Object.keys(fields).filter(function (key) {
     return fields.hasOwnProperty(key) && fields[key];
   }).map(function (key) {
-    return encodeField(key, fields[key]);
+    return encodeField(key, fields[key], isNestedObject);
   });
 
   if (encoded.length === 0) {
@@ -149,7 +149,7 @@ function encodeFields(fields) {
 //   ('a', {params: {b: 10}}) => 'a(b:10)'
 //   ('a', {fields: {b: 10}}) => 'a{b}'
 //
-function encodeField(key, val) {
+function encodeField(key, val, isNestedObject = false) {
   if (typeof val !== 'object') {
     return key;
   }
@@ -162,11 +162,48 @@ function encodeField(key, val) {
   if (val.params) {
     parts.push(encodeParams(val.params));
   }
-  if (val.fields || val.fragments) {
-    parts.push(encodeFieldset(val.fields, val.fragments));
+  if (val.fields) {
+    if(val.fragments){
+      parts.push(encodeFieldset(val.fields, val.fragments));
+    } else {
+      parts.push(encodeFieldObject(val.fields));
+		}
+  } 
+  if(isNestedObject && _typeof(val) === 'object' && Object.keys(val).length > 0) {
+    parts.push(`{${encodeFields(val, true)}}`);
   }
 
   return parts.join('');
+}
+
+// Encode nested fields and sub fields.
+// The output is a piece of a graphql query.
+//
+//   ('a', 1)                 => 'a'
+//   ('a', {fields: {b: 1}}) => 'a{b}'
+//   ('a', {fields: {b: {c: 1}}}) => 'a{b{c}}'
+//
+function encodeFieldObject(fields){		
+  if (!fields || typeof fields !== 'object') {
+    throw new Error(`fields cannot be "${fields}"`);
+  }
+
+  const encoded = Object.keys(fields).filter(function(key) {
+    return fields.hasOwnProperty(key) && fields[key];
+  }).map((key) =>  {
+    if ((!fields[key] || _typeof(fields[key])) !== 'object') {
+      return key;
+    }
+  
+    const parts = [key];
+    parts.push(`{${encodeFields(fields[key], true)}}`);
+    return parts.join('');
+  });
+
+  if (encoded.length === 0) {
+    throw new Error(`fields cannot be empty`);
+  }
+  return `{${encoded.join(',')}}`;
 }
 
 // Encodes a map of field parameters.

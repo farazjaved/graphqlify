@@ -54,9 +54,14 @@ describe('graphqlify', function () {
     expect(out).to.equal('{a(b:["c","d"])}');
   });
 
-  it('should encode a field with params and nested fields', function () {
+  it('should encode a field with params and fields', function () {
     const out = graphqlify({a: {params: {b: 'c'}, fields: {d: 1}}});
     expect(out).to.equal('{a(b:"c"){d}}');
+  });
+
+  it('should encode a field with params and nested fields', function () {
+    const out = graphqlify({a: {params: {b: 'c'}, fields: {d: {e: 1}}}});
+    expect(out).to.equal('{a(b:"c"){d{e}}}');
   });
 
   it('should encode a field with a fragment', function () {
